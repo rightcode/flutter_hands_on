@@ -1,67 +1,52 @@
+import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:chapter5/firebase_options.dart' as prod;
+import 'package:chapter5/firebase_options_dev.dart' as dev;
+import 'package:chapter5/firebase_options_stg.dart' as stg;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'presentation/app.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
+  // Flavor に応じた FirebaseOptions を準備する
+  const flavor = String.fromEnvironment('FLAVOR');
+  late FirebaseOptions firebaseOptions;
+  switch (flavor) {
+    case 'dev':
+      firebaseOptions = dev.DefaultFirebaseOptions.currentPlatform;
+      break;
+    case 'stg':
+      firebaseOptions = stg.DefaultFirebaseOptions.currentPlatform;
+      break;
+    case 'prod':
+      firebaseOptions = prod.DefaultFirebaseOptions.currentPlatform;
+      break;
+    default:
+      firebaseOptions = dev.DefaultFirebaseOptions.currentPlatform;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+  // Firebase の初期化
+  await Firebase.initializeApp(
+    options: firebaseOptions,
+  );
+  await initializeRemoteConfig();
+
+  runApp(const App());
+}
+
+Future<void> initializeRemoteConfig() async {
+  final remoteConfig = FirebaseRemoteConfig.instance;
+
+  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+    fetchTimeout: const Duration(minutes: 1),
+    minimumFetchInterval: const Duration(minutes: 5),
+  ));
+
+  await remoteConfig.setDefaults(const {
+    "env": "none",
+  });
+
+  await remoteConfig.fetchAndActivate();
 }
